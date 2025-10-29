@@ -53,6 +53,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     /* Events */
     event NewRound(uint256 _roundId);
     event NewEntry(uint256 _roundId, Entry _entry);
+    event WinnerPicked(address _winner);
     event RoundEnded(uint256 _roundId, address _winner, uint256 _winnings);
     event DiceRolled(uint256 _requestId, uint256 _roundId);
 
@@ -172,6 +173,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
             round.winner = winner;
 
             address winnerAddress = (round.entries[winner]).participant;
+            emit WinnerPicked(winnerAddress);
 
             (bool success,) = payable(winnerAddress).call{value: round.totalAmount}("");
             if (!success) {
