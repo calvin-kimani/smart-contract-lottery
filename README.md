@@ -1,66 +1,60 @@
-## Foundry
+# Smart Contract Lottery
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A decentralized lottery system built with Solidity and Foundry.
 
-Foundry consists of:
+## Overview
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+This project implements a provably fair lottery (raffle) system using Chainlink VRF for randomness and Chainlink Automation for automatic winner selection.
 
-## Documentation
+## Features
 
-https://book.getfoundry.sh/
+- Users can enter the raffle by paying an entrance fee
+- Automated periodic draws using Chainlink Automation
+- Provably random winner selection using Chainlink VRF v2.5
+- Winner receives the entire prize pool
 
-## Usage
+## Smart Contracts
+
+- `Raffle.sol` - Main lottery contract
+
+## Getting Started
+
+### Prerequisites
+
+- [Foundry](https://book.getfoundry.sh/)
+
+### Installation
+
+```shell
+git clone <repository-url>
+cd smart-contract-lottery
+forge install
+```
 
 ### Build
 
 ```shell
-$ forge build
+forge build
 ```
 
 ### Test
 
 ```shell
-$ forge test
+forge test
 ```
 
 ### Format
 
 ```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
+forge fmt
 ```
 
 ### Deploy
 
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+forge script script/DeployRaffle.s.sol --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
 
-### Cast
+## License
 
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+MIT
