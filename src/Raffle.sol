@@ -61,7 +61,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
     error Raffle__ErrRaffleNotOpen();
     error Raffle__ErrInsufficientEntranceFee();
     error Raffle__ErrRoundNotExpired();
-    error Raffle__ErrPickWinnerRequestIdDoNotMatch(uint256 _requestId, uint256 _roundId);
+    error Raffle__ErrPickWinnerRequestIdDoNotMatch(
+        uint256 _requestId,
+        uint256 _roundId
+    );
     error Raffle__ErrPayWinner();
     error Raffle__ErrDiceAlreadyRolled(uint256 _roundId);
 
@@ -89,6 +92,27 @@ contract Raffle is VRFConsumerBaseV2Plus {
         raffleState = State.OPEN;
     }
 
+    function checkUpkeep(
+        bytes calldata
+    ) external view returns (bool upkeepNeeded, bytes memory) {
+        Round storage round = rounds[currentRound];
+        bool isOpen = (raffleState == State.OPEN);
+        bool timePassed = (block.timestamp >= round.endTime);
+
+        upkeepNeeded = (isOpen && timePassed);
+
+        return (upkeepNeeded, bytes(""));
+    }
+
+    function performUpkeep(bytes calldata) external checkRoundIsExpired {
+        (bool upkeepNeeded, ) = this.checkUpkeep("");
+        if (!upkeepNeeded) {
+            revert Raffle__ErrRoundNotExpired();
+        }
+
+        _rollDice();
+    }
+
     function enterRaffle() external payable {
         if (raffleState != State.OPEN) {
             revert Raffle__ErrRaffleNotOpen();
@@ -103,7 +127,11 @@ contract Raffle is VRFConsumerBaseV2Plus {
         uint256 currentEntry = round.totalEntries + 1;
 
         // create a new entry
-        Entry memory newEntry = Entry({id: currentEntry, participant: msg.sender, amount: msg.value});
+        Entry memory newEntry = Entry({
+            id: currentEntry,
+            participant: msg.sender,
+            amount: msg.value
+        });
 
         round.entries[currentEntry] = newEntry;
 
@@ -115,31 +143,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
         emit NewEntry(round.id, newEntry);
     }
 
-    function rollDice() external {
-        Round storage round = rounds[currentRound];
-
-        if (round.requestId != 0) {
-            revert Raffle__ErrDiceAlreadyRolled(round.id);
-        }
-
-        VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient.RandomWordsRequest({
-            keyHash: I_KEYHASH,
-            subId: I_SUBSCRIPTION_ID,
-            requestConfirmations: REQUEST_CONFIRMATIONS,
-            callbackGasLimit: CALLBACK_GAS_LIMIT,
-            numWords: NUM_WORDS,
-            // Set nativePayment to true to pay for VRF requests with Sepolia ETH instead of LINK
-            extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
-        });
-
-        uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
-
-        round.requestId = requestId;
-
-        emit DiceRolled(requestId, round.id);
-    }
-
-    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] calldata randomWords
+    ) internal override {
         _pickWinner(randomWords[0], requestId);
     }
 
@@ -153,7 +160,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
         emit NewRound(newRoundId);
     }
 
-    function _pickWinner(uint256 _randomNumber, uint256 _requestId) internal checkRoundIsExpired {
+    function _pickWinner(
+        uint256 _randomNumber,
+        uint256 _requestId
+    ) internal checkRoundIsExpired {
         if (raffleState != State.OPEN) {
             revert Raffle__ErrRaffleNotOpen();
         }
@@ -163,7 +173,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
         Round storage round = rounds[currentRound];
 
         if (_requestId != round.requestId) {
-            revert Raffle__ErrPickWinnerRequestIdDoNotMatch(_requestId, round.id);
+            revert Raffle__ErrPickWinnerRequestIdDoNotMatch(
+                _requestId,
+                round.id
+            );
         }
 
         round.randomNumber = _randomNumber;
@@ -175,16 +188,47 @@ contract Raffle is VRFConsumerBaseV2Plus {
             address winnerAddress = (round.entries[winner]).participant;
             emit WinnerPicked(winnerAddress);
 
-            (bool success,) = payable(winnerAddress).call{value: round.totalAmount}("");
+            (bool success, ) = payable(winnerAddress).call{
+                value: round.totalAmount
+            }("");
             if (!success) {
                 raffleState = State.ERROR;
                 revert Raffle__ErrPayWinner();
             }
 
             emit RoundEnded(currentRound, winnerAddress, round.totalAmount);
+        } else {
+            emit RoundEnded(currentRound, address(0), 0);
         }
 
         _startRound();
+    }
+
+    function _rollDice() internal checkRoundIsExpired {
+        Round storage round = rounds[currentRound];
+
+        if (round.requestId != 0) {
+            revert Raffle__ErrDiceAlreadyRolled(round.id);
+        }
+
+        VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient
+            .RandomWordsRequest({
+                keyHash: I_KEYHASH,
+                subId: I_SUBSCRIPTION_ID,
+                requestConfirmations: REQUEST_CONFIRMATIONS,
+                callbackGasLimit: CALLBACK_GAS_LIMIT,
+                numWords: NUM_WORDS,
+                // Set nativePayment to true to pay for VRF requests with Sepolia ETH instead of LINK
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
+                )
+            });
+
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
+
+        round.requestId = requestId;
+
+        emit DiceRolled(requestId, round.id);
     }
 
     function _checkRoundIsExpired() internal view {
