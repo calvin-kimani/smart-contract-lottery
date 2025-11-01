@@ -47,7 +47,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
 
     uint32 private constant NUM_WORDS = 1;
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
-    uint32 private constant CALLBACK_GAS_LIMIT = 40000;
+    uint32 private constant CALLBACK_GAS_LIMIT = 500000;
     bytes32 private immutable I_KEYHASH;
     uint256 private immutable I_SUBSCRIPTION_ID;
 
@@ -56,7 +56,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     event NewEntry(uint256 _roundId, Entry _entry);
     event WinnerPicked(address indexed _winner);
     event RoundEnded(uint256 _roundId, address _winner, uint256 _winnings);
-    event DiceRolled(uint256 _requestId, uint256 _roundId);
+    event DiceRolled(uint256 indexed _requestId, uint256 _roundId);
     event RaffleClosed(uint256 _roundId, uint256 _time);
 
     /* Errors */
@@ -70,6 +70,11 @@ contract Raffle is VRFConsumerBaseV2Plus {
     error Raffle__ErrPayWinner();
     error Raffle__ErrDiceAlreadyRolled(uint256 _roundId);
     error Raffle__ErrSenderNotOwner(address _sender, address _owner);
+    error Raffle__ErrUpkeepNotNeeded(
+        uint256 _currentTime,
+        uint256 _roundEndTime,
+        State _raffleState
+    );
 
     /* Modifiers */
     modifier checkRoundIsExpired() {
@@ -78,7 +83,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     }
 
     modifier isOwner() {
-        _checkisOwner();
+        _checkIsOwner();
         _;
     }
 
@@ -113,10 +118,14 @@ contract Raffle is VRFConsumerBaseV2Plus {
         return (upkeepNeeded, bytes(""));
     }
 
-    function performUpkeep(bytes calldata) external checkRoundIsExpired {
+    function performUpkeep(bytes calldata) external {
         (bool upkeepNeeded, ) = this.checkUpkeep("");
         if (!upkeepNeeded) {
-            revert Raffle__ErrRoundNotExpired();
+            revert Raffle__ErrUpkeepNotNeeded(
+                block.timestamp,
+                rounds[currentRound].endTime,
+                raffleState
+            );
         }
 
         _rollDice();
@@ -319,7 +328,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         currentRound = id;
     }
 
-    function _checkisOwner() internal view {
+    function _checkIsOwner() internal view {
         if (msg.sender != I_OWNER) {
             revert Raffle__ErrSenderNotOwner(msg.sender, I_OWNER);
         }
