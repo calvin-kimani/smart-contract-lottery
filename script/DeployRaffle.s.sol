@@ -23,18 +23,24 @@ contract DeployRaffle is Script {
     function deployContract() public returns (Raffle, Helper.Config memory) {
         Helper.Config memory config = helper.getConfig();
         uint256 subId = config._subscriptionId;
+        address account = config._account;
 
         if (subId == 0) {
-            subId = interactions._createSubscription(config._vrfCoordinator);
+            subId = interactions._createSubscription(
+                config._vrfCoordinator,
+                account
+            );
             interactions._fundSubscription(
                 subId,
                 3,
                 config._vrfCoordinator,
-                config._linkToken
+                config._linkToken,
+                account
             );
+            config._subscriptionId = subId; // Update config with new subscription ID
         }
 
-        vm.startBroadcast();
+        vm.startBroadcast(account);
         raffle = new Raffle(
             config._entranceFee,
             config._roundInterval,
@@ -47,7 +53,8 @@ contract DeployRaffle is Script {
         interactions.addConsumerToSubscription(
             subId,
             address(raffle),
-            config._vrfCoordinator
+            config._vrfCoordinator,
+            account
         );
 
         return (raffle, config);

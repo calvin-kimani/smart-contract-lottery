@@ -21,6 +21,7 @@ contract Helper is Script, CodeConstants {
         bytes32 _keyHash;
         uint256 _subscriptionId;
         address _linkToken;
+        address _account;
     }
 
     Config networkConfig;
@@ -40,45 +41,39 @@ contract Helper is Script, CodeConstants {
     }
 
     function sepoliaConfig() public pure returns (Config memory) {
-        return
-            Config({
-                _entranceFee: 0.0001 ether,
-                _roundInterval: 10 seconds,
-                _vrfCoordinator: 0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B,
-                _keyHash: 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae,
-                _subscriptionId: 6928111596253744480111292073692150547142643364711322264528781207292245051214,
-                _linkToken: 0x779877A7B0D9E8603169DdbD7836e478b4624789
-            });
+        return Config({
+            _entranceFee: 0.0001 ether,
+            _roundInterval: 10 seconds,
+            _vrfCoordinator: 0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B,
+            _keyHash: 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae,
+            _subscriptionId: 6928111596253744480111292073692150547142643364711322264528781207292245051214,
+            _linkToken: 0x779877A7B0D9E8603169DdbD7836e478b4624789,
+            _account: 0x398C658d077a7e1f3E1a6f07f2A1C3e5C70493ee
+        });
     }
 
     function localConfig() public returns (Config memory) {
-        if (
-            address(networkConfigs[LOCAL_CHAIN_ID]._vrfCoordinator) !=
-            address(0)
-        ) {
+        if (address(networkConfigs[LOCAL_CHAIN_ID]._vrfCoordinator) != address(0)) {
             return networkConfigs[LOCAL_CHAIN_ID];
         }
 
         vm.startBroadcast();
 
-        VRFCoordinatorV2_5Mock vrfCoordinatorMock = new VRFCoordinatorV2_5Mock(
-            MOCK_BASE_FEE,
-            MOCK_GAS_PRICE_LINK,
-            MOCK_WEI_PER_UNIT_LINK
-        );
+        VRFCoordinatorV2_5Mock vrfCoordinatorMock =
+            new VRFCoordinatorV2_5Mock(MOCK_BASE_FEE, MOCK_GAS_PRICE_LINK, MOCK_WEI_PER_UNIT_LINK);
 
         LinkToken linkToken = new LinkToken();
 
         vm.stopBroadcast();
 
-        return
-            Config({
-                _entranceFee: 0.01 ether,
-                _roundInterval: 10 seconds,
-                _vrfCoordinator: address(vrfCoordinatorMock),
-                _keyHash: bytes32(0),
-                _subscriptionId: 0,
-                _linkToken: address(linkToken)
-            });
+        return Config({
+            _entranceFee: 0.01 ether,
+            _roundInterval: 10 seconds,
+            _vrfCoordinator: address(vrfCoordinatorMock),
+            _keyHash: bytes32(0),
+            _subscriptionId: 0,
+            _linkToken: address(linkToken),
+            _account: msg.sender
+        });
     }
 }

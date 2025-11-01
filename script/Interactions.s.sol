@@ -8,9 +8,10 @@ import {LinkToken} from "test/mocks/LinkToken.sol";
 
 contract Interactions is Script, CodeConstants {
     function _createSubscription(
-        address _vrfCoordinator
+        address _vrfCoordinator,
+        address _account
     ) public returns (uint256) {
-        vm.startBroadcast();
+        vm.startBroadcast(_account);
         uint256 subId = VRFCoordinatorV2_5Mock(_vrfCoordinator)
             .createSubscription();
         vm.stopBroadcast();
@@ -22,17 +23,18 @@ contract Interactions is Script, CodeConstants {
         uint256 _subId,
         uint96 _amount,
         address _vrfCoordinator,
-        address _linkToken
+        address _linkToken,
+        address _account
     ) public {
         if (block.chainid == LOCAL_CHAIN_ID) {
-            vm.startBroadcast();
+            vm.startBroadcast(_account);
             VRFCoordinatorV2_5Mock(_vrfCoordinator).fundSubscription(
                 _subId,
                 _amount
             );
             vm.stopBroadcast();
         } else if (block.chainid == SEPOLIA_CHAIN_ID) {
-            vm.startBroadcast();
+            vm.startBroadcast(_account);
             LinkToken(_linkToken).transferAndCall(
                 _vrfCoordinator,
                 _amount,
@@ -49,9 +51,10 @@ contract Interactions is Script, CodeConstants {
     function addConsumerToSubscription(
         uint256 _subId,
         address _raffleAddress,
-        address _vrfCoordinator
+        address _vrfCoordinator,
+        address _account
     ) public {
-        vm.startBroadcast();
+        vm.startBroadcast(_account);
         VRFCoordinatorV2_5Mock(_vrfCoordinator).addConsumer(
             _subId,
             _raffleAddress
