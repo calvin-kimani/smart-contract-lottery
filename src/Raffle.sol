@@ -43,6 +43,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     State public raffleState = State.CLOSED;
     uint256 public immutable I_ENTRANCE_FEE;
     uint256 public immutable I_ROUND_INTERVAL;
+    address public immutable I_OWNER;
 
     uint32 private constant NUM_WORDS = 1;
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
@@ -53,9 +54,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
     /* Events */
     event NewRound(uint256 _roundId);
     event NewEntry(uint256 _roundId, Entry _entry);
-    event WinnerPicked(address _winner);
+    event WinnerPicked(address indexed _winner);
     event RoundEnded(uint256 _roundId, address _winner, uint256 _winnings);
     event DiceRolled(uint256 _requestId, uint256 _roundId);
+    event RaffleClosed(uint256 _roundId, uint256 _time);
 
     /* Errors */
     error Raffle__ErrRaffleNotOpen();
@@ -67,10 +69,16 @@ contract Raffle is VRFConsumerBaseV2Plus {
     );
     error Raffle__ErrPayWinner();
     error Raffle__ErrDiceAlreadyRolled(uint256 _roundId);
+    error Raffle__ErrSenderNotOwner(address _sender, address _owner);
 
     /* Modifiers */
     modifier checkRoundIsExpired() {
         _checkRoundIsExpired();
+        _;
+    }
+
+    modifier isOwner() {
+        _checkisOwner();
         _;
     }
 
@@ -86,6 +94,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         I_ROUND_INTERVAL = _roundInterval;
         I_KEYHASH = _keyHash;
         I_SUBSCRIPTION_ID = _subscriptionId;
+        I_OWNER = msg.sender;
 
         _createRound(0);
 
@@ -143,6 +152,56 @@ contract Raffle is VRFConsumerBaseV2Plus {
         emit NewEntry(round.id, newEntry);
     }
 
+    function getPlayers(
+        uint256 _roundId
+    ) public view returns (address[] memory) {
+        Round storage round = rounds[_roundId];
+        uint256 totalEntries = round.totalEntries;
+
+        address[] memory players = new address[](totalEntries);
+
+        for (uint256 i = 1; i <= totalEntries; i++) {
+            players[i - 1] = round.entries[i].participant;
+        }
+
+        return players;
+    }
+
+    function getRound(
+        uint256 _roundId
+    )
+        public
+        view
+        returns (
+            uint256 id,
+            uint256 startTime,
+            uint256 endTime,
+            uint256 totalEntries,
+            uint256 totalAmount,
+            uint256 winner,
+            uint256 requestId,
+            uint256 randomNumber
+        )
+    {
+        Round storage round = rounds[_roundId];
+        return (
+            round.id,
+            round.startTime,
+            round.endTime,
+            round.totalEntries,
+            round.totalAmount,
+            round.winner,
+            round.requestId,
+            round.randomNumber
+        );
+    }
+
+    function closeRaffle() public isOwner {
+        raffleState = State.CLOSED;
+
+        emit RaffleClosed(currentRound, block.timestamp);
+    }
+
     function fulfillRandomWords(
         uint256 requestId,
         uint256[] calldata randomWords
@@ -164,7 +223,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         uint256 _randomNumber,
         uint256 _requestId
     ) internal checkRoundIsExpired {
-        if (raffleState != State.OPEN) {
+        if (raffleState != State.CALCULATING) {
             revert Raffle__ErrRaffleNotOpen();
         }
 
@@ -205,11 +264,17 @@ contract Raffle is VRFConsumerBaseV2Plus {
     }
 
     function _rollDice() internal checkRoundIsExpired {
+        if (raffleState != State.OPEN) {
+            revert Raffle__ErrRaffleNotOpen();
+        }
+
         Round storage round = rounds[currentRound];
 
         if (round.requestId != 0) {
             revert Raffle__ErrDiceAlreadyRolled(round.id);
         }
+
+        raffleState = State.CALCULATING;
 
         VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient
             .RandomWordsRequest({
@@ -252,5 +317,11 @@ contract Raffle is VRFConsumerBaseV2Plus {
         newRound.totalAmount = 0;
 
         currentRound = id;
+    }
+
+    function _checkisOwner() internal view {
+        if (msg.sender != I_OWNER) {
+            revert Raffle__ErrSenderNotOwner(msg.sender, I_OWNER);
+        }
     }
 }
